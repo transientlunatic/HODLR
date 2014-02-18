@@ -6,9 +6,12 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = []
 
+import time
 import kplr
+import emcee
 import fitsio
 import numpy as np
+import cPickle as pickle
 import matplotlib.pyplot as pl
 from transit import ldlc_simple
 
@@ -26,8 +29,19 @@ def model(fstar, q1, q2, t0, tau, ror, b):
     return fstar * lc
 
 
-def lnlike(p):
-    lna, lns, fstar, q1, q2, t0, tau, ror, b = p
+def lnprior(lna, lns, fstar, q1, q2, t0, tau, ror, b):
+    if not (0 < q1 < 1 and 0 < q2 < 1):
+        return -np.inf
+    if not 0 < ror < 1:
+        return -np.inf
+    if not 0 <= b <= 1.0:
+        return -np.inf
+    if not np.min(t) < t0 < np.max(t):
+        return -np.inf
+    return 0.0
+
+
+def lnlike(lna, lns, fstar, q1, q2, t0, tau, ror, b):
     a2, s2 = np.exp(2*lna), np.exp(2*lns)
 
     # Compute the model and residuals.
@@ -46,6 +60,16 @@ def lnlike(p):
     return -0.5 * (np.dot(res, alpha) + logdet + norm)
 
 
+def lnprob(p):
+    lp = lnprior(*p)
+    if not np.isfinite(lp):
+        return -np.inf
+    ll = lnlike(*p)
+    if not np.isfinite(ll):
+        return -np.inf
+    return lp + ll
+
+
 # Load the data.
 data = fitsio.read("data/kplr010593626-2011024051157_slc.fits")
 t, f, fe, q = (data["TIME"], data["SAP_FLUX"], data["SAP_FLUX_ERR"],
@@ -57,12 +81,16 @@ t, f, fe, q = t[m], f[m], fe[m], q[m]
 
 # Normalize by the median uncertainty for numerical stability.
 f, fe = f / np.median(fe), fe / np.median(fe)
-fe2 = fe * fe
 
 # Normalize the times.
 t -= np.min(t)
 
+# FIXME: just use a small amount of data.
+# m = (6 < t) * (t < 15)
+# t, f, fe, q = t[m], f[m], fe[m], q[m]
+
 # Pre-compute the normalization factor for the log-likelihood.
+fe2 = fe * fe
 norm = len(t) * np.log(2 * np.pi)
 
 # Inject a transit.
@@ -70,12 +98,20 @@ p0 = np.array([1e-10, 2.0, np.median(f), q1, q2, t0, tau, ror, b])
 f *= model(1, *(p0[3:]))
 
 # Compute the log likelihood.
-import time
 strt = time.time()
-print(lnlike(p0))
+print(lnprob(p0))
 print(time.time() - strt)
 
 # Plot the initial data.
 pl.clf()
 pl.plot(t, f, ".k", alpha=0.3)
 pl.savefig("data.png")
+
+# Run MCMC.
+ndim, nwalkers = len(p0), 100
+pos = [p0 + 1e-10 * np.random.randn(ndim) for i in xrange(nwalkers)]
+sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, threads=16)
+sampler.run_mcmc(pos, 2)
+
+# Save the results.
+pickle.dump(sampler.chain, open("results.pkl", "wb"), -1)
