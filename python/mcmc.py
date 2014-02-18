@@ -66,7 +66,7 @@ t -= np.min(t)
 norm = len(t) * np.log(2 * np.pi)
 
 # Inject a transit.
-p0 = np.array([1e-10, 1.0, np.median(f), q1, q2, t0, tau, ror, b])
+p0 = np.array([1e-10, 2.0, np.median(f), q1, q2, t0, tau, ror, b])
 f *= model(1, *(p0[3:]))
 
 # Compute the log likelihood.
