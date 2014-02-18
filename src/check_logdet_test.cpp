@@ -37,7 +37,7 @@ private:
 int main ()
 {
     // Build the times and diagonal arrays.
-    int N = 5000;
+    int N = 50;
     VectorXd time(N), diag(N);
 
     for (int i = 0; i < N; ++i) {
