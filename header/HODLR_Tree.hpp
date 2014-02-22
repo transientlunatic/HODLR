@@ -171,6 +171,7 @@ public:
         /*!
          Constructor for the HODLR tree.
          */
+	HODLR_Tree () {};
 	HODLR_Tree(MatrixType* kernel, int N, int nLeaf) {
 		this->kernel    =       kernel;
 		this->N		=	N;
