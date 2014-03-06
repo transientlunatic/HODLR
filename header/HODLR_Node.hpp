@@ -165,7 +165,13 @@ public:
          Computes the determinant of the matrix.
          */
 	void compute_Determinant() {
-		determinant	=	log(fabs(K.determinant()));
+                MatrixXd LU     =       Kinverse.matrixLU();
+                determinant     =       log(fabs(LU(0,0)));
+                for (int k=1; k<Kinverse.rows(); ++k) {
+                        determinant+=log(fabs(LU(k,k)));
+                }
+//              Previous version which had some underflow.
+//              determinant	=	log(fabs(K.determinant()));
 	};
 
         /*!
@@ -180,8 +186,8 @@ public:
 
         /*!
          \brief Partial pivoted LU to construct low-rank.
-         
-         
+
+
          */
 	void partial_Piv_LU(const int start_Row, const int start_Col, const int n_Rows, const int n_Cols, const double tolerance, int& computed_Rank, MatrixXd& U, MatrixXd& V) {
 
