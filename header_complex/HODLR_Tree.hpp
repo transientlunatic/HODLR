@@ -27,6 +27,7 @@ using namespace Eigen;
 using std::cout;
 using std::endl;
 using std::vector;
+using std::complex;
 
 template <typename MatrixType>
 class HODLR_Tree {
@@ -38,14 +39,13 @@ private:
 	int N;
 	int nLeaf;
 	double lowRankTolerance;
-	double determinant;
-	VectorXd diagonal;
+        complex<double> determinant;
+	VectorXcd diagonal;
         int nLevels;
         int nNodes;
         vector< vector<int*> > ranks;
         vector< vector<int> > nCalls_To_Get_Matrix_Entry;
         int nCalls;
-    char s; //  s = 's' means symmetric, else non-symmetric
         /*!
          Creates the tree.
          */
@@ -72,7 +72,7 @@ private:
          */
 	void assemble_Matrix(HODLR_Node<MatrixType>*& node) {
 		if (node) {
-			node->assemble_Matrices(lowRankTolerance, diagonal, s);
+			node->assemble_Matrices(lowRankTolerance, diagonal);
 			assemble_Matrix(node->child[0]);
 			assemble_Matrix(node->child[1]);
 		}
@@ -103,7 +103,7 @@ private:
         /*!
          Matrix matrix product.
          */
-	void matMatProduct(HODLR_Node<MatrixType>*& node, MatrixXd& x, MatrixXd& b) {
+	void matMatProduct(HODLR_Node<MatrixType>*& node, MatrixXcd& x, MatrixXcd& b) {
 		if (node) {
 			node->matrix_Matrix_Product(x, b);
 			matMatProduct(node->child[0], x, b);
@@ -119,7 +119,7 @@ private:
 			for (int k=0; k<2; ++k) {
 				compute_Factor(node->child[k]);
 			}
-			node->compute_K(s);
+			node->compute_K();
 			node->compute_Inverse();
 			HODLR_Node<MatrixType>*& mynode	=	node->parent;
 			int number		=	node->nodeNumber;
@@ -147,7 +147,7 @@ private:
         /*!
          Solves the HODLR matrix system.
          */
-	void solve(HODLR_Node<MatrixType>*& node, MatrixXd& x) {
+	void solve(HODLR_Node<MatrixType>*& node, MatrixXcd& x) {
 		if (node) {
 			solve(node->child[0], x);
 			solve(node->child[1], x);
@@ -172,7 +172,6 @@ public:
         /*!
          Constructor for the HODLR tree.
          */
-	HODLR_Tree () {};
 	HODLR_Tree(MatrixType* kernel, int N, int nLeaf) {
 		this->kernel    =       kernel;
 		this->N		=	N;
@@ -186,18 +185,17 @@ public:
         /*!
          Assembles the matrix.
          */
-	void assemble_Matrix(VectorXd& diagonal, double lowRankTolerance, char s) {
+	void assemble_Matrix(VectorXcd& diagonal, double lowRankTolerance) {
 		this->lowRankTolerance	=	lowRankTolerance;
-		this->diagonal          =	diagonal;
-        this->s                 =   s;
+		this->diagonal		=	diagonal;
 		assemble_Matrix(root);
 	};
 
         /*!
          Matrix matrix product.
          */
-	void matMatProduct(MatrixXd& x, MatrixXd& b) {
-		b	=	MatrixXd::Zero(N, x.cols());
+	void matMatProduct(MatrixXcd& x, MatrixXcd& b) {
+		b	=	MatrixXcd::Zero(N, x.cols());
 		matMatProduct(root, x, b);
 	};
 
@@ -212,7 +210,7 @@ public:
         /*!
          Solves the HODLR linear system.
          */
-	void solve(MatrixXd& b, MatrixXd& x) {
+	void solve(MatrixXcd& b, MatrixXcd& x) {
 		x	=	b;
 		solve(root, x);
 	};
@@ -220,8 +218,8 @@ public:
         /*!
          Computes the determinant.
          */
-	void compute_Determinant(double& determinant) {
-		this->determinant	=	0;
+	void compute_Determinant(complex<double>& determinant) {
+		this->determinant	=	complex<double> (0.0,0.0);
 		compute_Determinant(root);
 		determinant		=	this->determinant;
 //                cout << "Total nodes is: " << nNodes << endl;

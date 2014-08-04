@@ -12,6 +12,7 @@
 #include <ctime>
 #include <vector>
 #include <iomanip>
+#include <complex>
 
 #include "HODLR_Tree.hpp"
 #include "HODLR_Matrix.hpp"
@@ -22,7 +23,24 @@ using std::cout;
 using std::vector;
 using std::setprecision;
 using std::sort;
+using std::complex;
 using namespace Eigen;
+
+complex<double> compute_Determinant(MatrixXcd& K) {
+        FullPivLU<MatrixXcd> Kinverse;
+        Kinverse.compute(K);
+        complex<double> determinant;
+        if (K.rows()>0) {        //      Check needed when the matrix is predominantly diagonal.
+                MatrixXcd LU    =       Kinverse.matrixLU();
+                determinant     =       log(LU(0,0));
+                for (int k=1; k<K.rows(); ++k) {
+                        determinant+=log(LU(k,k));
+                }
+                //              Previous version which had some underflow.
+                //              determinant	=	log(abs(K.determinant()));
+        }
+        return determinant;
+};
 
 class Test_Kernel : public HODLR_Matrix {
 
@@ -50,31 +68,31 @@ public:
 #endif
 	};
 
-	double get_Matrix_Entry(const unsigned i, const unsigned j) {
+	std::complex<double> get_Matrix_Entry(const unsigned i, const unsigned j) {
 #ifdef ONE
 		double R	=	fabs(Theta(i)-Theta(j));
 		#ifdef	GAUSSIAN
-			return exp(-R*R);
+                        return complex<double> (exp(-R*R),1.0);
 		#elif	EXPONENTIAL
-			return exp(-R);
+			return complex<double> (exp(-R),1.0);
 		#elif	SINC
-			return sin(R)/R;
+			return complex<double> (sin(R)/R,1.0);
 		#elif	QUADRIC
-			return 1.0+R*R;
+			return complex<double> (1.0+R*R,1.0);
 		#elif	INVERSEQUADRIC
-			return 1.0/(1.0+R*R);
+			return complex<double> (1.0/(1.0+R*R),1.0);
 		#elif	MULTIQUADRIC
-			return sqrt(1.0+R*R);
+			return complex<double> (sqrt(1.0+R*R),1.0);
 		#elif	INVERSEMULTIQUADRIC
-			return 1.0/sqrt(1.0+R*R);
+			return complex<double> (1.0/sqrt(1.0+R*R),1.0);
 		#elif	R2LOGR
-				return R*R*log(R);
+                        return complex<double> (R*R*log(R),1.0);
 		#elif	LOGR
-				return log(R);
+			return complex<double> (log(R),1.0);
 		#elif	ONEOVERR
-				return 1.0/R;
+			return complex<double> (1.0/R,1.0);
 		#elif	LOG1R
-				return log(1+R);
+			return complex<double> (log(1+R),1.0);
 		#endif
 #else
 		double R2	=	(Theta(i,0)-Theta(j,0))*(Theta(i,0)-Theta(j,0));
@@ -82,28 +100,28 @@ public:
 			R2	=	R2+(Theta(i,k)-Theta(j,k))*(Theta(i,k)-Theta(j,k));
 		}
 		#ifdef	GAUSSIAN
-			return exp(-R2);
+			return complex<double> (exp(-R2),2.0);
 		#elif	EXPONENTIAL
-			return exp(-sqrt(R2));
+			return complex<double> (exp(-sqrt(R2)),2.0);
 		#elif	SINC
 			double R	=	sqrt(R2);
-			return sin(R)/R;
+			return complex<double> (sin(R)/R,2.0);
 		#elif	QUADRIC
-			return 1.0+R2;
+			return complex<double> (1.0+R2,2.0);
 		#elif	INVERSEQUADRIC
-			return 1.0/(1.0+R2);
+			return complex<double> (1.0/(1.0+R2),2.0);
 		#elif	MULTIQUADRIC
-			return sqrt(1.0+R2);
+			return complex<double> (sqrt(1.0+R2),2.0);
 		#elif	INVERSEMULTIQUADRIC
-			return 1.0/sqrt(1.0+R2);
+			return complex<double> (1.0/sqrt(1.0+R2),2.0);
 		#elif	R2LOGR
-				return 0.5*R2*log(R2);
+                        return complex<double> (0.5*R2*log(R2),2.0);
 		#elif	LOGR
-				return 0.5*log(R2);
+			return complex<double> (0.5*log(R2),2.0);
 		#elif	ONEOVERR
-				return 1.0/sqrt(R2);
+			return complex<double> (1.0/sqrt(R2),2.0);
 		#elif	LOG1R
-				return log(1+sqrt(R2));
+			return complex<double> (log(1+sqrt(R2)),2.0);
 		#endif
 #endif
 	};
@@ -112,15 +130,15 @@ public:
 int main() {
 	srand (time(NULL));
 
-	unsigned N	=	50000;
+	unsigned N	=	2000;
 	unsigned nRhs	=	1;
 	unsigned nLeaf	=	100;
 	double tolerance=	1e-15;
 
 	Test_Kernel kernel(N);
 
-	MatrixXd xExact	=	MatrixXd::Random(N, nRhs);
-	MatrixXd bExact(N,nRhs), bFast(N,nRhs), xFast(N,nRhs);
+	MatrixXcd xExact	=	MatrixXcd::Random(N, nRhs);
+	MatrixXcd bExact(N,nRhs), bFast(N,nRhs), xFast(N,nRhs);
 
 	cout << endl << "Number of particles is: " << N << endl;
 	clock_t start, end;
@@ -133,8 +151,8 @@ int main() {
 
 	cout << endl << "Assembling the matrix in HODLR form..." << endl;
 	start			=	clock();
-	VectorXd diagonal	=	2.0*VectorXd::Ones(N)+VectorXd::Random(N);
-	A->assemble_Matrix(diagonal, tolerance, 's');
+	VectorXcd diagonal	=	4.0*VectorXcd::Ones(N);
+	A->assemble_Matrix(diagonal, tolerance);
 	end		=	clock();
 	cout << "Time taken is: " << double(end-start)/double(CLOCKS_PER_SEC)<< endl;
 
@@ -173,7 +191,7 @@ int main() {
 	cout << endl << "Error in computed solution: " << (xFast-xExact).norm()/xExact.norm()<< endl;
 
 	cout << endl << "Error in matrix matrix product: " << (bFast-bExact).cwiseAbs().maxCoeff() << endl;
-	//	MatrixXd B;
+	//	MatrixXcd B;
 	//	cout << endl << "Assembling the entire matrix..." << endl;
 	//	start			=	clock();
 	//	get_Matrix(0, 0, N, N, B);
@@ -182,7 +200,7 @@ int main() {
 	//
 	//	cout << endl << "Exact determinant is: " << setprecision(16) << log(fabs(B.partialPivLu().determinant())) << endl;
 
-	double determinant;
+	complex<double> determinant;
 	cout << endl << "Computing the log determinant..." << endl;
 	start		=	clock();
 	A->compute_Determinant(determinant);
@@ -191,10 +209,20 @@ int main() {
 
 	cout << endl << "Log determinant is: " << setprecision(16) << determinant << endl;
 
+
+        MatrixXcd K;
+        kernel.get_Matrix(0, 0, N, N, K);
+        for (int k=0; k<N; ++k) {
+                K(k,k)  =       diagonal(k);
+        }
+
+        complex<double> exact_determinant;
+        exact_determinant       =       compute_Determinant(K);
+        cout << endl << "Exact log determinant is: " << setprecision(16) << exact_determinant << endl;
 	//
 	// cout << endl << "Exact matrix matrix product..." << endl;
 	// start			=	clock();
-	// MatrixXd bExact	=	B*x;
+	// MatrixXcd bExact	=	B*x;
 	// end				=	clock();
 	// cout << endl << "Time taken is: " << double(end-start)/double(CLOCKS_PER_SEC)<< endl;
 	//

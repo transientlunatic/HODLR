@@ -1,16 +1,16 @@
 /*!
  \class HODLR_Node
-
+ 
  \brief This class is for the node of a HODLR tree, i.e., a diagonal sub-matrix at the appropriate level in the tree.
 
  \note
-
+ 
  \author $Sivaram Ambikasaran$
-
+ 
  \version
-
+ 
  \date $November 8th, 2013$
-
+ 
  Contact: siva.1985@gmail.com
  */
 
@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 
 using std::vector;
+using std::complex;
 using namespace Eigen;
 
 template <typename MatrixType>
@@ -38,16 +39,16 @@ public:
         int levelBasedNodeNumber;       ///<    Level based node number;
 	int nStart;                ///<	nStart is the starting index of node;
 	int nSize;                 ///<	nSize is the size of the node;
-	MatrixXd K;                     ///<	At leaf level, stores the self interaction; At non-leaf stores the matrix [I, V1inverse*U1inverse; V0inverse*U0inverse, I];
-	FullPivLU<MatrixXd> Kinverse;	///<	Stores Factorization of K;
-	double determinant;             ///<	Stores K.determinant();
+	MatrixXcd K;                     ///<	At leaf level, stores the self interaction; At non-leaf stores the matrix [I, V1inverse*U1inverse; V0inverse*U0inverse, I];
+	FullPivLU<MatrixXcd> Kinverse;	///<	Stores Factorization of K;
+	complex<double> determinant;    ///<	Stores K.determinant();
 
         /**	Variables of interest for non-leaf;*/
 	int nRank[2];	///<	nRank[0] rank of K01; nRank[1] rank of K10;
-	MatrixXd U[2];		///<	Column basis of low-rank interaction of children at non-leaf;
-	MatrixXd V[2];		///<	Row basis of low-rank interaction ofchildren at non-leaf;
-	MatrixXd Uinverse[2];	///<	Column basis of low-rank interaction of children of inverse at non-leaf.
-	MatrixXd Vinverse[2];	///<	Row basis of low-rank interaction of children of inverse at non-leaf.
+	MatrixXcd U[2];		///<	Column basis of low-rank interaction of children at non-leaf;
+	MatrixXcd V[2];		///<	Row basis of low-rank interaction ofchildren at non-leaf;
+	MatrixXcd Uinverse[2];	///<	Column basis of low-rank interaction of children of inverse at non-leaf.
+	MatrixXcd Vinverse[2];	///<	Row basis of low-rank interaction of children of inverse at non-leaf.
 
         /**	Variables of interest at leaf;*/
 	bool isLeaf;		///<	If node is a leaf, it takes the value TRUE;
@@ -70,7 +71,7 @@ public:
         /*!
          Assemble the relevant matrices.
          */
-	void assemble_Matrices(double lowRankTolerance, VectorXd& diagonal, char s) {
+	void assemble_Matrices(double lowRankTolerance, VectorXcd& diagonal) {
 		if (isLeaf	==	true) {
 			kernel->get_Matrix(nStart, nStart, nSize, nSize, K);
 			for (int k=0; k<nSize; ++k) {
@@ -79,14 +80,7 @@ public:
 		}
 		else if (isLeaf	==	false) {
 			partial_Piv_LU(child[0]->nStart, child[1]->nStart, child[0]->nSize, child[1]->nSize, lowRankTolerance, nRank[0], U[0], V[1]);
-            if (s == 's') {
-                V[0]    =   U[0].transpose();
-                U[1]    =   V[1].transpose();
-                nRank[1]=   nRank[0];
-            }
-            else {
 			partial_Piv_LU(child[1]->nStart, child[0]->nStart, child[1]->nSize, child[0]->nSize, lowRankTolerance, nRank[1], U[1], V[0]);
-            }
 //                        ranks[levelNumber][levelBasedNodeNumber][0]     =       nRank[0];
 //                        ranks[levelNumber][levelBasedNodeNumber][1]     =       nRank[1];
 		}
@@ -95,7 +89,7 @@ public:
         /*!
          Matrix matrix product.
          */
-	void matrix_Matrix_Product(MatrixXd& x, MatrixXd& b) {
+	void matrix_Matrix_Product(MatrixXcd& x, MatrixXcd& b) {
 		int n	=	x.cols();
 
 		if (isLeaf	==	true) {
@@ -121,20 +115,14 @@ public:
 		}
 	};
 
-	void compute_K(char s) {
+	void compute_K() {
 		if (isLeaf	==	false) {
 			int m0	=	V[0].rows();
 			int m1	=	V[1].rows();
-			K	=	MatrixXd::Identity(m0+m1, m0+m1);
+			K	=	MatrixXcd::Identity(m0+m1, m0+m1);
 
 			K.block(0, m1, m1, m0)	=	Vinverse[1]*Uinverse[1];
-            if (s=='s') {
-//                K.block(m1, 0, m0, m1)  =   K.block(0, m1, m1, m0).transpose();
-                K.block(m1, 0, m0, m1)	=	Vinverse[0]*Uinverse[0];
-            }
-            else {
-                K.block(m1, 0, m0, m1)	=	Vinverse[0]*Uinverse[0];
-            }
+			K.block(m1, 0, m0, m1)	=	Vinverse[0]*Uinverse[0];
 		}
 	};
 
@@ -148,7 +136,7 @@ public:
         /*!
          Applies the inverse.
          */
-	void apply_Inverse(MatrixXd& matrix, int mStart) {
+	void apply_Inverse(MatrixXcd& matrix, int mStart) {
 		int n	=	matrix.cols();
 		int start	=	nStart-mStart;
 		if (isLeaf	==	true) {
@@ -157,7 +145,7 @@ public:
 		else if (isLeaf	==	false) {
 			//	Computes temp		=	Vinverse*matrix
 
-			MatrixXd temp(nRank[0]+nRank[1], n);
+			MatrixXcd temp(nRank[0]+nRank[1], n);
 
 			temp.block(0, 0, nRank[0] , n)		=	Vinverse[1]*matrix.block(start+child[0]->nSize, 0 , child[1]->nSize, n);
 
@@ -165,7 +153,7 @@ public:
 
 			//	Computes tempSolve	=	Kinverse\temp
 
-			MatrixXd tempSolve	=	Kinverse.solve(temp);
+			MatrixXcd tempSolve	=	Kinverse.solve(temp);
 
 			//	Computes matrix		=	matrix-Uinverse*tempSolve
 
@@ -179,13 +167,13 @@ public:
          */
 	void compute_Determinant() {
                 if (Kinverse.rows()>0) {        //      Check needed when the matrix is predominantly diagonal.
-                        MatrixXd LU     =       Kinverse.matrixLU();
-                        determinant     =       log(fabs(LU(0,0)));
+                        MatrixXcd LU     =       Kinverse.matrixLU();
+                        determinant     =       log(LU(0,0));
                         for (int k=1; k<Kinverse.rows(); ++k) {
-                                determinant+=log(fabs(LU(k,k)));
+                                determinant+=log(LU(k,k));
                         }
                         //              Previous version which had some underflow.
-                        //              determinant	=	log(fabs(K.determinant()));
+                        //              determinant	=	log(abs(K.determinant()));
                 }
 	};
 
@@ -204,7 +192,7 @@ public:
 
 
          */
-	void partial_Piv_LU(const int start_Row, const int start_Col, const int n_Rows, const int n_Cols, const double tolerance, int& computed_Rank, MatrixXd& U, MatrixXd& V) {
+	void partial_Piv_LU(const int start_Row, const int start_Col, const int n_Rows, const int n_Cols, const double tolerance, int& computed_Rank, MatrixXcd& U, MatrixXcd& V) {
 
 	/********************************/
 	/*	PURPOSE OF EXISTENCE	*/
@@ -236,12 +224,12 @@ public:
 		int tolerable_Rank =   5;
 		if (n_Cols <= tolerable_Rank){
 			kernel->get_Matrix(start_Row, start_Col, n_Rows, n_Cols, U);
-			V               =   MatrixXd::Identity(n_Cols, n_Cols);
+			V               =   MatrixXcd::Identity(n_Cols, n_Cols);
 			computed_Rank   =   n_Cols;
 			return;
 		}
 		else if (n_Rows <= tolerable_Rank){
-			U               =   MatrixXd::Identity(n_Rows, n_Rows);
+			U               =   MatrixXcd::Identity(n_Rows, n_Rows);
 			kernel->get_Matrix(start_Row, start_Col, n_Rows, n_Cols, V);
 			computed_Rank   =   n_Rows;
 			return;
@@ -249,11 +237,11 @@ public:
 
 		vector<int> rowIndex;	///	This stores the row indices, which have already been used.
 		vector<int> colIndex;	///	This stores the column indices, which have already been used.
-		vector<VectorXd> u;	///	Stores the column basis.
-		vector<VectorXd> v;	///	Stores the row basis.
+		vector<VectorXcd> u;	///	Stores the column basis.
+		vector<VectorXcd> v;	///	Stores the row basis.
 
-		/* srand (time(NULL)); */
-		double max, Gamma, unused_max;
+		srand (time(NULL));
+                complex<double> max, unused_max, Gamma;
 
 		/*  INITIALIZATION  */
 
@@ -265,7 +253,7 @@ public:
 
 		computed_Rank   =   0;
 
-		VectorXd a, row, col;
+		VectorXcd a, row, col;
 
 		double row_Squared_Norm, row_Norm, col_Squared_Norm, col_Norm;
 
@@ -286,7 +274,7 @@ public:
 			int count1     =   0;
 
 			/// This randomization is needed if in the middle of the algorithm the row happens to be exactly the linear combination of the previous rows.
-			while (fabs(max)<tolerance && count < max_tries) {
+			while (abs(max)<tolerance && count < max_tries) {
 				int new_rowIndex;
 				rowIndex.pop_back();
 				do {
@@ -315,7 +303,7 @@ public:
 			colIndex.push_back(pivot);
 
 			/// Normalizing constant
-			Gamma   =   1.0/max;
+			Gamma   =   1.0/(max);
 
 			/// Generation of the column
 			kernel->get_Matrix_Col(start_Row, n_Rows, start_Col+colIndex.back(), a);
@@ -328,7 +316,7 @@ public:
 			pivot   =   kernel->max_Abs_Vector(col, rowIndex, unused_max);
 
 			/// This randomization is needed if in the middle of the algorithm the columns happens to be exactly the linear combination of the previous columns.
-			while (fabs(max)<tolerance && count < max_tries) {
+			while (abs(max)<tolerance && count < max_tries) {
 				colIndex.pop_back();
 				int new_colIndex;
 				do {
@@ -366,32 +354,32 @@ public:
 			col_Squared_Norm    =   col.squaredNorm();
 			col_Norm            =   sqrt(col_Squared_Norm);
 
-			matrix_Norm         =   matrix_Norm +   Gamma*Gamma*row_Squared_Norm*col_Squared_Norm;
+			matrix_Norm         =   matrix_Norm +   abs(Gamma*Gamma*row_Squared_Norm*col_Squared_Norm);
 
 			for (int j=0; j<computed_Rank; ++j) {
-				matrix_Norm     =   matrix_Norm +   2.0*(u[j].dot(u.back()))*(v[j].dot(v.back()));
+				matrix_Norm     =   matrix_Norm +   2.0*abs(u[j].dot(u.back()))*abs(v[j].dot(v.back()));
 			}
 			++computed_Rank;
-		} while (row_Norm*col_Norm > fabs(max)*tolerance*matrix_Norm && computed_Rank <= fmin(n_Rows, n_Cols));
+		} while (row_Norm*col_Norm > abs(max)*tolerance*matrix_Norm && computed_Rank <= fmin(n_Rows, n_Cols));
 
 		/// If the computed_Rank is close to full-rank then return the trivial full-rank decomposition
 		if (computed_Rank>=fmin(n_Rows, n_Cols)) {
 			if (n_Rows < n_Cols) {
-				U   =   MatrixXd::Identity(n_Rows,n_Rows);
+				U   =   MatrixXcd::Identity(n_Rows,n_Rows);
 				kernel->get_Matrix(start_Row, start_Col, n_Rows, n_Cols, V);
 				computed_Rank   =   n_Rows;
 				return;
 			}
 			else {
 				kernel->get_Matrix(start_Row, start_Col, n_Rows, n_Cols, U);
-				V   =   MatrixXd::Identity(n_Cols,n_Cols);
+				V   =   MatrixXcd::Identity(n_Cols,n_Cols);
 				computed_Rank   =   n_Cols;
 				return;
 			}
 		}
 
-		U   =   MatrixXd(n_Rows,computed_Rank);
-		V   =   MatrixXd(computed_Rank,n_Cols);
+		U   =   MatrixXcd(n_Rows,computed_Rank);
+		V   =   MatrixXcd(computed_Rank,n_Cols);
 		for (int j=0; j<computed_Rank; ++j) {
 			U.col(j)    =   u[j];
 			V.row(j)    =   v[j];
