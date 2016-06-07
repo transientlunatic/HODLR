@@ -172,6 +172,7 @@ public:
         /*!
          Constructor for the HODLR tree.
          */
+	HODLR_Tree () {};
 	HODLR_Tree(MatrixType* kernel, int N, int nLeaf) {
 		this->kernel    =       kernel;
 		this->N		=	N;
@@ -186,9 +187,14 @@ public:
          Assembles the matrix.
          */
 	void assemble_Matrix(VectorXd& diagonal, double lowRankTolerance, char s) {
+		assemble_Matrix(diagonal, lowRankTolerance, s, time(NULL));
+	}
+
+	void assemble_Matrix(VectorXd& diagonal, double lowRankTolerance, char s, unsigned int seed) {
 		this->lowRankTolerance	=	lowRankTolerance;
 		this->diagonal          =	diagonal;
-        this->s                 =   s;
+		this->s                 =   s;
+		srand(seed);
 		assemble_Matrix(root);
 	};
 

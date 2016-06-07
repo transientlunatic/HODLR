@@ -91,7 +91,7 @@ if (UNIX)
 endif (UNIX)
 
 # Build the Kepler demo.
-add_executable (kepler examples/kepler_test.cpp)
+# add_executable (kepler examples/kepler_test.cpp)
 
 # Build the tests.
 macro (HODLR_TEST NAME KERNEL DIM)
@@ -103,5 +103,12 @@ macro (HODLR_TEST NAME KERNEL DIM)
               COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME}_test)
 endmacro (HODLR_TEST)
 
-hodlr_test (oned_gaussian GAUSSIAN ONE)
-hodlr_test (twod_gaussian GAUSSIAN TWO)
+# hodlr_test (oned_gaussian GAUSSIAN ONE)
+# hodlr_test (twod_gaussian GAUSSIAN TWO)
+
+# Add the logdet test.
+add_executable (check_logdet_test src/check_logdet_test.cpp)
+set_target_properties (check_logdet_test PROPERTIES
+                        COMPILE_FLAGS "${HODLR_FLAGS}")
+add_test (NAME check_logdet_test
+          COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/check_logdet_test)

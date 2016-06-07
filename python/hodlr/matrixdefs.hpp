@@ -60,8 +60,8 @@ class Gaussian_Matrix : public HODLR_Matrix {
 
 public:
 
-    Gaussian_Matrix (const double amp, const double var, const double* t)
-        : amp_(amp), ivar_(1.0/var), t_(t)
+    Gaussian_Matrix (const double amp, const double std, const double* t)
+        : amp_(amp*amp), ivar_(1.0/(std*std)), t_(t)
     {
         status_ = 0;
     };

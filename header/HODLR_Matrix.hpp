@@ -26,6 +26,7 @@ class HODLR_Matrix {
 
 public:
 	HODLR_Matrix () {};
+	virtual ~HODLR_Matrix () {};
 
         /*!
          Allows access to the matrix elements, i.e., returns the (i,j)th element of the HODLR matrix.

@@ -1,16 +1,16 @@
 /*!
  \class HODLR_Node
- 
+
  \brief This class is for the node of a HODLR tree, i.e., a diagonal sub-matrix at the appropriate level in the tree.
 
  \note
- 
+
  \author $Sivaram Ambikasaran$
- 
+
  \version
- 
+
  \date $November 8th, 2013$
- 
+
  Contact: siva.1985@gmail.com
  */
 
@@ -252,7 +252,7 @@ public:
 		vector<VectorXd> u;	///	Stores the column basis.
 		vector<VectorXd> v;	///	Stores the row basis.
 
-		srand (time(NULL));
+		/* srand (time(NULL)); */
 		double max, Gamma, unused_max;
 
 		/*  INITIALIZATION  */
