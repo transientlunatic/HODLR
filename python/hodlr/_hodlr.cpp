@@ -90,7 +90,7 @@ static int _hodlr_init(_hodlr *self, PyObject *args, PyObject *kwds)
 
     // Initialize the solver.
     self->solver = new HODLR_Tree<Gaussian_Matrix> (self->matrix, self->dim, nLeaf);
-    self->solver->assemble_Matrix(dv, tol);
+    self->solver->assemble_Matrix(dv, tol, 's');
     Py_DECREF(diag_array);
 
     // Factorize the matrix.
